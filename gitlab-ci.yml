@@ -1,0 +1,32 @@
+stages:
+  - Build
+  - Deploy-on-Dev
+
+docker-build:
+  stage: Build
+  variables:
+    GIT_USERNAME: ${CI_REGISTRY_USER}
+    GIT_PASSWORD: ${CI_REGISTRY_PASSWORD}
+  image:
+    name: gcr.io/kaniko-project/executor:v1.9.0-debug
+    entrypoint: [""]
+  tags:
+    - microk8s
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --destination
+      "192.168.32.102:5050/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME:$CI_COMMIT_SHORT_SHA"
+
+deploy:
+  stage: Deploy-on-Dev
+  image:
+    name: alpine/helm:3.2.1
+  tags:
+    - microk8s
+  script:
+    - helm upgrade gitlab-fixit "${CI_PROJECT_DIR}/fixit-chart" --install
+        --set image.repository=192.168.32.102:5050/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME
+        --set image.tag=${CI_COMMIT_SHORT_SHA}
+        --namespace gitlab
